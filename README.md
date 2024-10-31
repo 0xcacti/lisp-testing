@@ -1,2 +1,4 @@
-# lisp-testing
-Simple testing framework for CL using macros.  Designed to imitate jest. 
+# cl-testing
+
+Simple testing framework for CL using macros.  
+Designed to imitate jest. 
