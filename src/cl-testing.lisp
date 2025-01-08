@@ -66,7 +66,9 @@
            ((it (name &rest body)
               `(push (list ,name ',@body) ,',tests-gensym))
             (skip-it (name &rest body)
-              `(push (list :skip ,name) ,',tests-gensym)))
+              `(push (list :skip ,name) ,',tests-gensym))
+            (only-it (name &rest body)
+              `(push (list :only ,name ',@body) ,',tests-gensym)))
          ,@body)
 
 
@@ -78,11 +80,18 @@
 
        (progn
          (mapc #'funcall (reverse *before-all-hooks*))
+         (let ((has-only-it nil))
+         (dolist (test (reverse ,tests-gensym))
+           (when (eq (first test) :only)
+             (setf has-only-it t)
+             (only-it (second test) 
+               (eval (third test)))))
+        (unless has-only-it
          (dolist (test (reverse ,tests-gensym))
            (if (eq (first test) :skip)
                (skip-it (second test) nil)
                (it (first test) 
-                 (eval (second test)))))
+                 (eval (second test)))))))
          (mapc #'funcall (reverse *after-all-hooks*))
          nil))))
 
@@ -98,13 +107,26 @@
              (cformat :green (format t "PASSED~%")))
          (error (e)
            (cformat :red (format t "FAILED: ~A~%" e))))
-       (progn (mapc #'funcall *after-each-hooks*))))
+       (progn (mapc #'funcall *after-each-hooks*)))))
 
 (defmacro skip-it (test-name &body body)
   (let ((test-name-gensym (gensym)))
     `(let ((,test-name-gensym ,test-name))
        (format t "~&~A |> " ,test-name-gensym)
        (cformat :yellow (format t "SKIPPED~%")))))
+
+(defmacro only-it (test-name &body body)
+  (let ((test-name-gensym (gensym)))
+    `(let ((,test-name-gensym ,test-name))
+       (handler-case 
+           (progn
+             (mapc #'funcall *before-each-hooks*)
+             (format t "~&~A |> " ,test-name-gensym)
+             ,@body 
+             (cformat :green (format t "PASSED~%")))
+         (error (e)
+           (cformat :red (format t "FAILED: ~A~%" e))))
+       (progn (mapc #'funcall *after-each-hooks*)))))
 
 (describe-group "A group of mathematics tests" 
 
@@ -128,6 +150,8 @@
 
   (skip-it "should multiply two numbers"
     (assert (= (* 3 4) 12)))
-  )
+
+  (only-it "should be really cool if I want it to be" 
+    (assert (= 1 1))))
 
 
