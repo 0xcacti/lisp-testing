@@ -62,39 +62,43 @@
            (*after-each-hooks* nil)
            (,tests-gensym nil))
 
-       (flet
+       (macrolet
            ((it (name &rest body)
-              (push (list name body) ,tests-gensym))
+              `(push (list ,name ',@body) ,',tests-gensym))
             (skip-it (name &rest body)
-              (push (list :skip name) ,tests-gensym)))
-            ,@body)
+              `(push (list :skip ,name) ,',tests-gensym)))
+         ,@body)
+
 
        (format t "~&~A:~%" ,group-name-gensym)
        (loop for i from 0 to (length (string ,group-name-gensym)) do
              (format t "="))
        (format t "~%")
        ;; Execute all hooks and body, return body result
-       (mapc #'funcall (reverse *before-all-hooks*))
-       (dolist (test (reverse ,tests-gensym))
-         (if (eq (first test) :skip)
-             (skip-it (second test) nil)
-             (it (first test) 
-               (eval (second test))))
-       (mapc #'funcall (reverse *after-all-hooks*))))))
+
+       (progn
+         (mapc #'funcall (reverse *before-all-hooks*))
+         (dolist (test (reverse ,tests-gensym))
+           (if (eq (first test) :skip)
+               (skip-it (second test) nil)
+               (it (first test) 
+                 (eval (second test)))))
+         (mapc #'funcall (reverse *after-all-hooks*))
+         nil))))
 
 
 (defmacro it (test-name &body body)
   (let ((test-name-gensym (gensym)))
     `(let ((,test-name-gensym ,test-name))
-       (format t "~&~A |> " ,test-name-gensym)
        (handler-case 
            (progn
              (mapc #'funcall *before-each-hooks*)
+             (format t "~&~A |> " ,test-name-gensym)
              ,@body 
              (cformat :green (format t "PASSED~%")))
          (error (e)
            (cformat :red (format t "FAILED: ~A~%" e))))
-       (mapc #'funcall *after-each-hooks*))))
+       (progn (mapc #'funcall *after-each-hooks*))))
 
 (defmacro skip-it (test-name &body body)
   (let ((test-name-gensym (gensym)))
@@ -127,17 +131,3 @@
   )
 
 
-;; DONE 
-
-;; describe - You already have this with describe-group
-;; test/it - You already have this
-
-;; LEFT TO DO 
-
-;; skip-it - I could figure out how to do this ez
-;; only-it - I have no idea how to do this
-;; beforeAll/afterAll - Runs once before/after all tests in a describe block
-;; beforeEach/afterEach - Runs before/after each test case
-;; afterAll.unordered() - For cleanup that can run in any order
-
-;; expect - For assertions (you're using CL's assert) ;; I don't quite understand all the to be stuff
